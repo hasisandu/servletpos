@@ -1,10 +1,7 @@
 package servlet;
 
 import javax.annotation.Resource;
-import javax.json.Json;
-import javax.json.JsonArrayBuilder;
-import javax.json.JsonObject;
-import javax.json.JsonReader;
+import javax.json.*;
 import javax.json.stream.JsonParsingException;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -15,7 +12,6 @@ import javax.sql.DataSource;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.sql.*;
-import java.util.Date;
 
 @WebServlet(urlPatterns = "/Order")
 public class Order extends HttpServlet {
@@ -23,40 +19,103 @@ public class Order extends HttpServlet {
     @Resource(name = "jdbc/finalpossystemproject")
     private DataSource dataSource;
 
-    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
 
-        JsonReader reader=null;
-        JsonObject empObj = null;
+        System.out.println("DO Working");
+        Connection connection = null;
+        resp.setContentType("application/json");
+
+        PrintWriter out = resp.getWriter();
+
+
 
         try {
-            reader = Json.createReader(request.getReader());
-            empObj=reader.readObject();
 
-            String orderid = empObj.getString("orderid");
-            String customerid = empObj.getString("customerid");
-            String orderdate = empObj.getString("orderdate");
-            double price = Double.parseDouble(empObj.getString("price"));
-            Connection connection = dataSource.getConnection();
+            JsonReader reader = Json.createReader(req.getReader());
+            JsonObject JSON = reader.readObject();
 
+            JsonObject order = JSON.getJsonObject("order");
+
+            String orderID = order.getString("orderid");
+
+            JsonArray orderDetails = JSON.getJsonArray("orderDetails");
+
+            connection = dataSource.getConnection();
             connection.setAutoCommit(false);
 
-            PreparedStatement pstm = connection.prepareStatement("INSERT INTO orders VALUES (?,?,?,?)");
-            pstm.setObject(1,orderid);
-            pstm.setObject(2,customerid);
-            pstm.setObject(3, new Date());
-            pstm.setObject(4,price);
-            boolean value=pstm.executeUpdate()>0;
+            String sql = "INSERT INTO Orders VALUES (?,?,?)";
+            PreparedStatement pstm = connection.prepareStatement(sql);
+            pstm.setString(2, order.getString("date"));
+            pstm.setString(3, order.getString("customerid"));
+            pstm.setString(1, orderID);
 
-            if (value){
-                response.setStatus(HttpServletResponse.SC_CREATED);
-            }else{
-                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            int affectedRows = pstm.executeUpdate();
+
+            if (affectedRows == 0) {
+                connection.rollback();
+                return;
+            } else {
+                System.out.println("Order OK");
             }
 
-        }catch (JsonParsingException | NullPointerException  ex){
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
-        }catch (Exception ex){
-            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            sql = "INSERT INTO  ItemDetail VALUES (?,?,?,?)";
+            pstm = connection.prepareStatement(sql);
+
+            for (int i = 0; i < orderDetails.size() - 1; i++) {
+
+                JsonObject orderDetail = orderDetails.get(i).asJsonObject();
+
+                pstm.setObject(1, orderID);
+                pstm.setObject(2, orderDetail.getString("itemCode"));
+                pstm.setObject(3, orderDetail.getInt("qty"));
+                pstm.setObject(4, orderDetail.getString("subPrice"));
+
+                affectedRows = pstm.executeUpdate();
+
+                if (affectedRows == 0) {
+                    connection.rollback();
+                    return;
+                }
+
+                Statement stm = connection.createStatement();
+                ResultSet rst = stm.executeQuery("SELECT * FROM Item WHERE code='" + orderDetail.getString("itemCode") + "'");
+
+                int qtyOnHand = 0;
+
+                if (rst.next()) {
+                    qtyOnHand = rst.getInt("qtyOnHand");
+                }
+
+                PreparedStatement pstm2 = connection.prepareStatement("UPDATE Item SET qtyOnHand=? WHERE code=?");
+
+                pstm2.setObject(1, qtyOnHand - orderDetail.getInt("qty"));
+                pstm2.setObject(2, orderDetail.getString("itemCode"));
+
+                affectedRows = pstm2.executeUpdate();
+
+                if (affectedRows == 0) {
+                    connection.rollback();
+                    return;
+                }
+            }
+
+            connection.commit();
+
+            System.out.println("Order Success");
+
+        } catch (SQLException ex) {
+            try {
+                connection.rollback();
+            } catch (SQLException ex1) {
+                System.out.println(ex1);
+            }
+            System.out.println(ex);
+        } finally {
+            try {
+                connection.setAutoCommit(true);
+            } catch (SQLException ex) {
+                System.out.println(ex);
+            }
         }
 
     }
