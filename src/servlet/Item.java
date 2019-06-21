@@ -36,6 +36,7 @@ public class Item extends HttpServlet {
             String discription = itemObj.getString("discription");
             int qtyonhand = Integer.parseInt(itemObj.getString("qtyonhand"));
             double unitprice = Double.parseDouble(itemObj.getString("unitprice"));
+            System.out.println(qtyonhand);
 
 
             Connection connection = dataSource.getConnection();
@@ -129,17 +130,18 @@ public class Item extends HttpServlet {
     protected void doPut(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
 
         JsonReader reader=null;
-        JsonObject empObj = null;
+        JsonObject itemObj = null;
 
         try {
             reader = Json.createReader(req.getReader());
-            empObj=reader.readObject();
+            itemObj = reader.readObject();
+            String itemid = itemObj.getString("itemid");
+            String itemname = itemObj.getString("itemname");
+            String discription = itemObj.getString("discription");
+            int qtyonhand = Integer.parseInt(itemObj.getString("qtyonhand"));
+            double unitprice = Double.parseDouble(itemObj.getString("unitprice"));
 
-            String itemid = empObj.getString("itemid");
-            String itemname = empObj.getString("itemname");
-            String discription = empObj.getString("discription");
-            int qtyonhand = Integer.parseInt(empObj.getString("qtyonhand"));
-            double unitprice = Double.parseDouble(empObj.getString("unitprice"));
+
 
             Connection connection = dataSource.getConnection();
             PreparedStatement pstm = connection.prepareStatement("update item set itemname=?, discription=?, qtyonhand=?, unitprice=? where itemid=?");

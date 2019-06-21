@@ -15,6 +15,7 @@ import javax.sql.DataSource;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.sql.*;
+import java.util.Date;
 
 @WebServlet(urlPatterns = "/Order")
 public class Order extends HttpServlet {
@@ -35,16 +36,14 @@ public class Order extends HttpServlet {
             String customerid = empObj.getString("customerid");
             String orderdate = empObj.getString("orderdate");
             double price = Double.parseDouble(empObj.getString("price"));
-            JsonObject items = empObj.getJsonObject("items");
-
             Connection connection = dataSource.getConnection();
 
             connection.setAutoCommit(false);
 
-            PreparedStatement pstm = connection.prepareStatement("INSERT INTO order VALUES (?,?,?,?)");
+            PreparedStatement pstm = connection.prepareStatement("INSERT INTO orders VALUES (?,?,?,?)");
             pstm.setObject(1,orderid);
             pstm.setObject(2,customerid);
-            pstm.setObject(3,orderdate);
+            pstm.setObject(3, new Date());
             pstm.setObject(4,price);
             boolean value=pstm.executeUpdate()>0;
 
@@ -111,12 +110,12 @@ public class Order extends HttpServlet {
 
     @Override
     protected void doDelete(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-
+        System.out.println(req.getParameter("orderid"));
         Connection connection = null;
         try {
             connection = dataSource.getConnection();
-            PreparedStatement pstm = connection.prepareStatement("delete from Customer where cusid=?");
-            pstm.setObject(1,req.getParameter("customerid"));
+            PreparedStatement pstm = connection.prepareStatement("delete from orders where orderid=?");
+            pstm.setObject(1, req.getParameter("orderid"));
             boolean value=pstm.executeUpdate()>0;
         } catch (SQLException e) {
             e.printStackTrace();
@@ -135,19 +134,19 @@ public class Order extends HttpServlet {
             reader = Json.createReader(req.getReader());
             empObj=reader.readObject();
 
-            String cusid = empObj.getString("customerid");
-            String firstname = empObj.getString("firstname");
-            String lastname = empObj.getString("lastname");
-            String address = empObj.getString("address");
+            String orderid = empObj.getString("orderid");
+            String customerid = empObj.getString("customerid");
+            String orderdate = empObj.getString("orderdate");
+            double price = Double.parseDouble(empObj.getString("price"));
 
-            System.out.println(cusid);
+            System.out.println(orderid);
 
             Connection connection = dataSource.getConnection();
-            PreparedStatement pstm = connection.prepareStatement("update Customer set firstname=?, lastname=?, address=? where cusid=?");
-            pstm.setObject(1,firstname);
-            pstm.setObject(2,lastname);
-            pstm.setObject(3,address);
-            pstm.setObject(4,cusid);
+            PreparedStatement pstm = connection.prepareStatement("update orders set customerid=?, orderdate=?, price=? where orderid=?");
+            pstm.setObject(1, customerid);
+            pstm.setObject(2, orderdate);
+            pstm.setObject(3, price);
+            pstm.setObject(4, orderid);
             boolean value=pstm.executeUpdate()>0;
 
             if (value){
